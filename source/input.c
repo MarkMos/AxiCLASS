@@ -529,12 +529,12 @@ int input_shooting(struct file_content * pfc,
   /* array of parameters passed by the user for which we need shooting (= target parameters) */
   char * const target_namestrings[] = {"100*theta_s","Omega_dcdmdr","omega_dcdmdr",
                                        "Omega_scf","Omega_ini_dcdm","omega_ini_dcdm",
-                                       "fraction_axion_ac","log10_axion_ac","log10_fraction_axion_ac_phi2n",
+                                       "fraction_axion_ac","log10_axion_ac","Omega_scf_shoot_fa","log10_fraction_axion_ac_phi2n",
                                        "log10_axion_ac_phi2n","a_peak_eq","sigma8"};
   /* array of corresponding parameters that must be adjusted in order to meet the target (= unknown parameters) */
   char * const unknown_namestrings[] = {"h","Omega_ini_dcdm","Omega_ini_dcdm",
                                         "scf_shooting_parameter","Omega_dcdmdr","omega_dcdmdr",
-                                        "alpha_squared","power_of_mu","phi_ini_scf",
+                                        "alpha_squared","power_of_mu","log10_f_axion","phi_ini_scf",
                                         "V0_phi2n","ac_from_aeq","A_s"};
   /* for each target, module up to which we need to run CLASS in order
      to compute the targetted quantities (not running the whole code
@@ -542,7 +542,7 @@ int input_shooting(struct file_content * pfc,
      enum computation_stage target_cs[] = {cs_thermodynamics, cs_background, cs_background,
                                            cs_background, cs_background, cs_background,
                                            cs_background, cs_background, cs_background,
-                                           cs_background, cs_background, cs_nonlinear};
+                                           cs_background, cs_background, cs_background, cs_nonlinear};
 
 
   struct fzerofun_workspace fzw;
@@ -826,7 +826,7 @@ class_call(parser_read_string(pfc,"do_shooting",&string1,&flag1,errmsg),
         if(input_verbose > 10){
           printf("Found target: %s, target value =  %e\n",target_namestrings[index_target],param1);
         }
-        if(fzw.do_shooting_scf ==_FALSE_ && (target_namestrings[index_target]=="Omega_scf"|| target_namestrings[index_target]=="fraction_axion_ac" ||  target_namestrings[index_target]=="log10_fraction_axion_ac_phi2n"||  target_namestrings[index_target]=="log10_axion_ac_phi2n")){
+        if(fzw.do_shooting_scf ==_FALSE_ && (target_namestrings[index_target]=="Omega_scf_shoot_fa"||target_namestrings[index_target]=="Omega_scf"|| target_namestrings[index_target]=="fraction_axion_ac" ||  target_namestrings[index_target]=="log10_fraction_axion_ac_phi2n"||  target_namestrings[index_target]=="log10_axion_ac_phi2n")){
           // printf("I will not add it!\n");
         }else{
           target_indices[unknown_parameters_size] = index_target; /*setting up correct variable that we have defined to shoot for as an answer */
@@ -1164,6 +1164,7 @@ int input_needs_shooting_for_target(struct file_content * pfc,
   case Omega_scf:
   case fraction_axion_ac:
   case log10_axion_ac:
+  case Omega_scf_shoot_fa:
   case Omega_ini_dcdm:
   case omega_ini_dcdm:
     /* Check that Omega's or omega's are nonzero: */
@@ -1443,7 +1444,7 @@ int input_get_guess(double *xguess,
   struct output op;           /* for output files */
   int i;
   double Omega_M, a_decay, gamma, Omega0_dcdmdr=1.0;
-  double Omega_tot_ac, phi_initial,axc,fxc,p,guess,ac,fac,FF;
+  double Omega_tot_ac, phi_initial,axc,fxc,p,guess,ac,fac,FF,m_ax,Omega_ax;
 
   int index_guess;
   double Omega_rad;//hardcoded for simplicity; in any case this is an approximate guess for f(zc) and zc
@@ -1625,6 +1626,25 @@ int input_get_guess(double *xguess,
            // dxdy[index_guess] = 100;
 
           if(pfzw->input_verbose>10)printf("get guess: axion_ac %e power_of_mu %e dxdy[index_guess] %e Omega_m %e Omega_rad %e\n",axc,xguess[index_guess],dxdy[index_guess],(ba.Omega0_cdm+ba.Omega0_b),(ba.Omega0_g+ba.Omega0_ur));
+
+           break;
+
+      case Omega_scf_shoot_fa:
+          // class_test()
+          phi_initial = ba.scf_parameters[0];
+          m_ax=ba.m_scf;
+          Omega_ax=pfzw->target_value[index_guess];
+
+          guess = pow(Omega_ax*pow(phi_initial/0.5,2)*pow(m_ax/1e10,0.5),0.5); // f_ax^2
+          // guess = pow(Omega_ax*pow(phi_initial/0.5,2)*pow(m_ax/1e10,0.5),0.5); 
+          
+          xguess[index_guess] = log10(guess);
+          dxdy[index_guess] = 0.1;//- log10(pow(Omega_ax,0.5));
+
+          // xguess[index_guess] = guess;
+          // dxdy[index_guess] = guess*pow(Omega_ax,0.5);
+           if(pfzw->input_verbose>10)printf("get guess: m_ax %e \n",m_ax);
+           if(pfzw->input_verbose>10)printf("get guess: Omega_scf %e log10_f_axion %e dxdy[index_guess] %e\n",Omega_ax,xguess[index_guess],dxdy[index_guess]);
 
            break;
 
@@ -1937,6 +1957,17 @@ int input_try_unknown_parameters(double * unknown_parameter,
         ac = 1./(pow(10,ba.log10_z_c)+1);
         output[i] = log10(ac)-pfzw->target_value[i];
          if(input_verbose>10)printf("ac %e  pfzw->target_value[i] %e output[i] %e\n", log10(ac),pfzw->target_value[i],output[i]);
+        break;
+      case Omega_scf_shoot_fa:
+         output[i] = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_scf]/(ba.H0*ba.H0)
+          -ba.Omega0_scf;
+        pfzw->target_value[i] = ba.Omega0_scf;
+        if(input_verbose>10){
+            printf("Shooting in f_a for Omega_ax \n");
+            printf("f_axion: %e\n", ba.f_axion);
+            printf("rho_ax / rho_crit: %e\n",ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_scf]/(ba.H0*ba.H0));
+            printf("distance away from target: %e\n", ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_scf]/(ba.H0*ba.H0) - ba.Omega0_scf);
+          }
         break;
       case log10_fraction_axion_ac_phi2n: // TLS where to print out log10_fraction_axion_ac and axion_ac
         output[i] = log10(ba.f_ede)-pfzw->target_value[i];
@@ -4125,9 +4156,12 @@ int input_read_parameters_species(struct file_content * pfc,
 class_call(parser_read_double(pfc,"Omega_scf",&param3,&flag3,errmsg),
            errmsg,
            errmsg);
- class_test(class_at_least_two_of_three(flag1,flag2,flag3),
+class_call(parser_read_double(pfc,"Omega_scf_shoot_fa",&param4,&flag4,errmsg),
+           errmsg,
+           errmsg);
+ class_test(class_at_least_two_of_four(flag1,flag2,flag3,flag4),
             errmsg,
-            "You can only enter one of 'fraction_axion_ac', 'log10_fraction_axion_ac' or 'Omega_scf'.");
+            "You can only enter one of 'fraction_axion_ac', 'log10_fraction_axion_ac', 'Omega_scf', or 'Omega_scf_shoot_fa'.");
   if(flag1==_TRUE_){
     // class_read_double("fraction_axion_ac",pba->log10_fraction_axion_ac);
     class_test(param1 < 0,errmsg,"you have pba->fraction_axion_ac negative in your input file!!");
@@ -4146,6 +4180,11 @@ class_call(parser_read_double(pfc,"Omega_scf",&param3,&flag3,errmsg),
     //note that the parameter Omega0_scf may be re-assigned later, when checking if Omega0_scf is used to fullfil the closure relation.
     //this is harmless.
   }
+  if(flag4 == _TRUE_){
+    pba->Omega0_scf=param4;
+    //note that the parameter Omega0_scf may be re-assigned later, when checking if Omega0_scf is used to fullfil the closure relation.
+    //this is harmless.
+  }
 
 
 
@@ -4153,11 +4192,32 @@ class_call(parser_read_double(pfc,"Omega_scf",&param3,&flag3,errmsg),
     class_read_double("log10_fraction_axion_ac_phi2n",pba->log10_fraction_axion_ac);
     class_read_double("log10_axion_ac",pba->log10_axion_ac);
     class_read_double("m_axion",pba->m_scf);
-    class_read_double("f_axion",pba->f_axion);
+
+    //class_read_double("f_axion",pba->f_axion);
+    //class_read_double("log10_f_axion")
+
+    class_call(parser_read_double(pfc,"f_axion",&param1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+    class_call(parser_read_double(pfc,"log10_f_axion",&param2,&flag2,errmsg),
+            errmsg,
+            errmsg);
+    class_test(flag1 == _TRUE_ && flag2 == _TRUE_,errmsg,"You can either specify 'f_axion' or 'log10_f_axion', not both");
+    if(flag1 == _TRUE_){
+      pba->f_axion=param1;
+    }
+    if(flag2 == _TRUE_){
+      pba->f_axion=pow(10,param2);
+      if (input_verbose > 5)
+      {
+        printf("Setting f_axion: %e, using log10_f_axion: %e\n",pba->f_axion,param2);
+      }
+      
+    }
 
 
     class_test(pba->m_scf == 0.0 && pba->f_axion != 0.0,errmsg,"you have pba->m_scf = 0 but pba->f_axion != 0.0. Please check your ini file! ");
-    class_test(pba->m_scf != 0.0 && pba->f_axion == 0.0,errmsg,"you have pba->m_scf != 0 but pba->f_axion = 0.0. Please check your ini file! ");
+    class_test(pba->m_scf != 0.0 && pba->f_axion == 0.0 && flag4 != _TRUE_,errmsg,"you have pba->m_scf != 0 but pba->f_axion = 0.0, and are not shooting for it. Please check your ini file! ");
 
   if (pba->log10_fraction_axion_ac > -30. || pba->log10_axion_ac > -30 || pba->m_scf != 0 || pba->f_axion != 0 || pba->Omega0_scf != 0){
 
@@ -4626,11 +4686,14 @@ class_call(parser_read_double(pfc,"Omega_scf",&param3,&flag3,errmsg),
        class_call(parser_read_double(pfc,"Omega_scf",&param3,&flag3,errmsg),
                   errmsg,
                   errmsg);
+      class_call(parser_read_double(pfc,"Omega_scf_shoot_fa",&param4,&flag4,errmsg),
+                  errmsg,
+                  errmsg);
        /* Test */
-       class_test((flag1 == _TRUE_) && (flag2 == _TRUE_) && ((flag3 == _FALSE_) || (param3 >= 0.)),
+       class_test((flag1 == _TRUE_) && (flag2 == _TRUE_) && (((flag3 == _FALSE_) && (flag4 == _FALSE_))|| (param3 >= 0.)),
                   errmsg,
                   "'Omega_Lambda' or 'Omega_fld' must be left unspecified, except if 'Omega_scf' is set and < 0.");
-       class_test(((flag1 == _FALSE_)||(flag2 == _FALSE_)) && ((flag3 == _TRUE_) && (param3 < 0.)),
+       class_test(((flag1 == _FALSE_)||(flag2 == _FALSE_)) && (((flag3 == _TRUE_) && (param3 < 0.)) || ((flag4 == _TRUE_) && (param4 < 0.))),
                   errmsg,
                   "You have entered 'Omega_scf' < 0 , so you have to specify both 'Omega_lambda' and 'Omega_fld'.");
        /* Complete set of parameters
@@ -4672,6 +4735,10 @@ class_call(parser_read_double(pfc,"Omega_scf",&param3,&flag3,errmsg),
   }
   if ((flag3 == _TRUE_) && (param3 >= 0.)){
     pba->Omega0_scf = param3;
+    Omega_tot += pba->Omega0_scf;
+  }
+  if ((flag4 == _TRUE_) && (param4 >= 0.)){
+    pba->Omega0_scf = param4;
     Omega_tot += pba->Omega0_scf;
   }
   /* Step 2 */
