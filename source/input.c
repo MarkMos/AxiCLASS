@@ -706,7 +706,38 @@ class_call(parser_read_string(pfc,"do_shooting",&string1,&flag1,errmsg),
         }
         else if(fzw.scf_potential == axion){
           class_read_double("m_axion",fzw.m_scf);
-          class_read_double("f_axion",fzw.f_axion);
+          //class_read_double("f_axion",fzw.f_axion);
+          class_call(parser_read_double(pfc,"f_axion",&param1,&flag1,errmsg),
+                      errmsg,
+                      errmsg);
+           class_call(parser_read_double(pfc,"log10_f_axion",&param2,&flag2,errmsg),
+                      errmsg,
+                      errmsg);
+          class_test((flag1 == _TRUE_) && (flag2 == _TRUE_),
+                      errmsg,
+                      "In input file, you cannot enter both log10_f_axion and f_axion, choose one");
+           if (flag1 == _TRUE_) {
+             fzw.f_axion = param1;
+           }
+           if (flag2 == _TRUE_) {
+             fzw.f_axion = pow(10,param2);
+           }
+
+          class_call(parser_read_double(pfc,"theta_axion",&param1,&flag1,errmsg),
+                   errmsg,
+                   errmsg);
+          if(flag1 == _TRUE_){
+            if (input_verbose > 5)
+              {
+                printf("f_axion=0 for setting phi_ini, settng to 1e-3\n");
+              }
+            if (fzw.f_axion == 0){
+              fzw.f_axion = 1e-3;
+            }
+          fzw.scf_parameters[fzw.scf_parameters_size-2] = param1*fzw.f_axion;
+          }
+
+          printf("DEBUG: f_axion=%e, phi_ini=%e\n",fzw.f_axion, fzw.scf_parameters[0]);
           // fzw.Omega0_axion = 0.0;
           fzw.log10_axion_ac = 0.0;
           class_read_double("n_axion",fzw.n_axion);
@@ -1634,6 +1665,7 @@ int input_get_guess(double *xguess,
           phi_initial = ba.scf_parameters[0];
           m_ax=ba.m_scf;
           Omega_ax=pfzw->target_value[index_guess];
+          if(pfzw->input_verbose>10)printf("guess input: m_ax=%e, phi_ini=%e. Omega_ax=%e\n",m_ax, phi_initial,Omega_ax);
 
           guess = pow(Omega_ax*pow(phi_initial/0.5,2)*pow(m_ax/1e10,0.5),0.5); // f_ax^2
           // guess = pow(Omega_ax*pow(phi_initial/0.5,2)*pow(m_ax/1e10,0.5),0.5); 
@@ -1643,7 +1675,7 @@ int input_get_guess(double *xguess,
 
           // xguess[index_guess] = guess;
           // dxdy[index_guess] = guess*pow(Omega_ax,0.5);
-           if(pfzw->input_verbose>10)printf("get guess: m_ax %e \n",m_ax);
+           //if(pfzw->input_verbose>10)printf("get guess: m_ax %e \n",m_ax);
            if(pfzw->input_verbose>10)printf("get guess: Omega_scf %e log10_f_axion %e dxdy[index_guess] %e\n",Omega_ax,xguess[index_guess],dxdy[index_guess]);
 
            break;
@@ -1685,6 +1717,7 @@ int input_get_guess(double *xguess,
 
         }
         else if (ba.scf_tuning_index == 0 && (ba.scf_potential == axion) ){
+          if(pfzw->input_verbose>10)printf("Guessing in scf_parameter[0]\n");
           // if(ba.scf_parameters[0]>1){
           //   xguess[index_guess] = _PI_*ba.scf_parameters[2];//set IC based on f_a.
           //   dxdy[index_guess] = 0.5*xguess[index_guess]; //If this is negative, the field always move to positive values as x2 = k*f1*dxdy, even if it shouldn't
@@ -4210,7 +4243,7 @@ class_call(parser_read_double(pfc,"Omega_scf_shoot_fa",&param4,&flag4,errmsg),
       pba->f_axion=pow(10,param2);
       if (input_verbose > 5)
       {
-        printf("Setting f_axion: %e, using log10_f_axion: %e\n",pba->f_axion,param2);
+        printf("Setting f_axion: %e, using log10_f_axion: %e, should be %e\n",pba->f_axion,param2,pow(10,param2));
       }
       
     }
@@ -4234,6 +4267,23 @@ class_call(parser_read_double(pfc,"Omega_scf_shoot_fa",&param4,&flag4,errmsg),
                                            &flag1,
                                            errmsg),
                errmsg,errmsg);
+    class_call(parser_read_double(pfc,"theta_axion",&param1,&flag1,errmsg),
+                   errmsg,
+                   errmsg);
+          if(flag1 == _TRUE_){
+            if (pba->f_axion == 0){
+              if (input_verbose > 5)
+              {
+                printf("f_axion=0 for setting phi_ini, settng to 1e-3\n");
+              }
+              pba->f_axion = 1e-3;
+            }
+          pba->scf_parameters[pba->scf_parameters_size-2] = param1*pba->f_axion;
+          }
+    if (input_verbose > 5)
+      {
+        printf("Setting phi_ini: %e\n",pba->scf_parameters[0]);
+      }
 
 
     /** - Assign a given scalar field potential */
@@ -4422,6 +4472,12 @@ class_call(parser_read_double(pfc,"Omega_scf_shoot_fa",&param4,&flag4,errmsg),
                     errmsg);
         if(flag1 == _TRUE_){
          pba->f_axion = param1;
+       }
+         class_call(parser_read_double(pfc,"log10_f_axion",&param1,&flag1,errmsg),
+                    errmsg,
+                    errmsg);
+        if(flag1 == _TRUE_){
+         pba->f_axion = pow(10,param1);
        }
          class_call(parser_read_double(pfc,"m_axion",&param1,&flag1,errmsg),
                     errmsg,
@@ -4635,8 +4691,27 @@ class_call(parser_read_double(pfc,"Omega_scf_shoot_fa",&param4,&flag4,errmsg),
           pba->phi_prime_ini_scf = pba->scf_parameters[pba->scf_parameters_size-1];//dummy: will be set later
         }else{
           // pba->phi_ini_scf = 0;//dummy: will be set later
+          class_call(parser_read_double(pfc,"theta_axion",&param1,&flag1,errmsg),
+                   errmsg,
+                   errmsg);
+          if(flag1 == _TRUE_){
+            if (pba->f_axion == 0){
+              if (input_verbose > 5)
+              {
+                printf("f_axion=0 for setting phi_ini, settng to 1e-3\n");
+              }
+              pba->f_axion = 1e-3;
+            }
+          pba->scf_parameters[pba->scf_parameters_size-2] = param1*pba->f_axion;
+          }
+
+
+
           pba->phi_ini_scf = pba->scf_parameters[pba->scf_parameters_size-2];
           pba->phi_prime_ini_scf = pba->scf_parameters[pba->scf_parameters_size-1];
+
+
+          
           // printf("%e %e \n",pba->phi_ini_scf,pba->phi_prime_ini_scf );
         }
 

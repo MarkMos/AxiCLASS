@@ -1014,6 +1014,7 @@ int background_init(
               cos_initial = cos(pba->phi_ini_scf);
               sin_initial = sin(pba->phi_ini_scf);
               // printf("%e %e %e \n",cos_initial,sin_initial,p);
+              printf("Debug: phi_ini: %e, f_axion: %e \n", pba->phi_ini_scf, pba->f_axion);
 
               n = pba->n_axion;
 
