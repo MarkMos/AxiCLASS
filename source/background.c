@@ -1014,7 +1014,7 @@ int background_init(
               cos_initial = cos(pba->phi_ini_scf);
               sin_initial = sin(pba->phi_ini_scf);
               // printf("%e %e %e \n",cos_initial,sin_initial,p);
-              printf("Debug: phi_ini: %e, f_axion: %e \n", pba->phi_ini_scf, pba->f_axion);
+              // printf("Debug: phi_ini (theta): %e, f_axion: %e \n", pba->phi_ini_scf, pba->f_axion);
 
               n = pba->n_axion;
 
@@ -1109,6 +1109,7 @@ int background_init(
             pba->phi_ini_scf*=pba->f_axion; //conversion from theta_i to phi_i; multiplying by fa
             pba->phi_prime_ini_scf*=pba->f_axion; //conversion from theta_dot_i to phi_dot_i; multiplying by fa
             // printf("%e %e\n", pba->scf_parameters[0],  pba->scf_parameters[0]/pba->f_axion);
+            // printf("Debug: phi_ini (phi): %e\n", pba->phi_ini_scf);
 
 
 
@@ -3381,6 +3382,10 @@ int background_output_budget(
       class_print_species("Decaying Cold Dark Matter",dcdm);
       budget_matter+=pba->Omega0_dcdm;
     }
+    if (pba->has_scf == _TRUE_ && (pba->scf_potential == axion && pba->n_axion == 1) ) {
+      class_print_species("Axion DM",scf);
+      budget_matter+=pba->Omega0_scf;
+    }
 
     if (pba->N_ncdm > 0) {
       printf(" ---> Non-Cold Dark Matter Species (incl. massive neutrinos)\n");
@@ -3420,7 +3425,7 @@ int background_output_budget(
       class_print_species("Dark Energy Fluid",fld);
       budget_other+=pba->Omega0_fld;
     }
-    if (pba->has_scf == _TRUE_) {
+    if (pba->has_scf == _TRUE_ && !(pba->scf_potential == axion && pba->n_axion == 1) ) {
       class_print_species("Scalar Field",scf);
       budget_other+=pba->Omega0_scf;
       // printf("pba->Omega0_axion %e\n", pba->Omega0_axion);

@@ -727,17 +727,19 @@ class_call(parser_read_string(pfc,"do_shooting",&string1,&flag1,errmsg),
                    errmsg,
                    errmsg);
           if(flag1 == _TRUE_){
-            if (input_verbose > 5)
-              {
-                printf("f_axion=0 for setting phi_ini, settng to 1e-3\n");
-              }
-            if (fzw.f_axion == 0){
-              fzw.f_axion = 1e-3;
-            }
-          fzw.scf_parameters[fzw.scf_parameters_size-2] = param1*fzw.f_axion;
+            fzw.theta_axion = param1;
+            // if (input_verbose > 5)
+            //   {
+            //     printf("f_axion=0 for setting phi_ini, settng to 1e-3\n");
+            //   }
+            // if (fzw.f_axion == 0){
+            //   fzw.f_axion = 1e-3;
+            // }
+          // fzw.scf_parameters[fzw.scf_parameters_size-2] = param1*fzw.f_axion;
+          fzw.scf_parameters[fzw.scf_parameters_size-2] = param1;
           }
 
-          printf("DEBUG: f_axion=%e, phi_ini=%e\n",fzw.f_axion, fzw.scf_parameters[0]);
+          // printf("DEBUG: f_axion=%e, phi_ini (theta?)=%e\n",fzw.f_axion, fzw.scf_parameters[0]);
           // fzw.Omega0_axion = 0.0;
           fzw.log10_axion_ac = 0.0;
           class_read_double("n_axion",fzw.n_axion);
@@ -1662,16 +1664,16 @@ int input_get_guess(double *xguess,
 
       case Omega_scf_shoot_fa:
           // class_test()
-          phi_initial = ba.scf_parameters[0];
+          phi_initial = ba.scf_parameters[0]; // actually theta
           m_ax=ba.m_scf;
           Omega_ax=pfzw->target_value[index_guess];
-          if(pfzw->input_verbose>10)printf("guess input: m_ax=%e, phi_ini=%e. Omega_ax=%e\n",m_ax, phi_initial,Omega_ax);
+          if(pfzw->input_verbose>10)printf("guess input: m_ax=%e, phi_ini (theta)=%e. Omega_ax=%e\n",m_ax, phi_initial,Omega_ax);
 
           guess = pow(Omega_ax*pow(phi_initial/0.5,2)*pow(m_ax/1e10,0.5),0.5); // f_ax^2
           // guess = pow(Omega_ax*pow(phi_initial/0.5,2)*pow(m_ax/1e10,0.5),0.5); 
           
-          xguess[index_guess] = log10(guess);
-          dxdy[index_guess] = 0.1;//- log10(pow(Omega_ax,0.5));
+          xguess[index_guess] = log10(guess)-2;
+          dxdy[index_guess] =  1;//- log10(pow(Omega_ax,0.5));
 
           // xguess[index_guess] = guess;
           // dxdy[index_guess] = guess*pow(Omega_ax,0.5);
@@ -4271,14 +4273,16 @@ class_call(parser_read_double(pfc,"Omega_scf_shoot_fa",&param4,&flag4,errmsg),
                    errmsg,
                    errmsg);
           if(flag1 == _TRUE_){
-            if (pba->f_axion == 0){
-              if (input_verbose > 5)
-              {
-                printf("f_axion=0 for setting phi_ini, settng to 1e-3\n");
-              }
-              pba->f_axion = 1e-3;
-            }
-          pba->scf_parameters[pba->scf_parameters_size-2] = param1*pba->f_axion;
+            pba->theta_axion = param1;
+            // if (pba->f_axion == 0){
+            //   if (input_verbose > 5)
+            //   {
+            //     printf("f_axion=0 for setting phi_ini, settng to 1e-3\n");
+            //   }
+            //   pba->f_axion = 1e-3;
+            // }
+          // pba->scf_parameters[pba->scf_parameters_size-2] = param1*pba->f_axion;
+          pba->scf_parameters[pba->scf_parameters_size-2] = param1;
           }
     if (input_verbose > 5)
       {
@@ -4695,14 +4699,16 @@ class_call(parser_read_double(pfc,"Omega_scf_shoot_fa",&param4,&flag4,errmsg),
                    errmsg,
                    errmsg);
           if(flag1 == _TRUE_){
-            if (pba->f_axion == 0){
-              if (input_verbose > 5)
-              {
-                printf("f_axion=0 for setting phi_ini, settng to 1e-3\n");
-              }
-              pba->f_axion = 1e-3;
-            }
-          pba->scf_parameters[pba->scf_parameters_size-2] = param1*pba->f_axion;
+            pba->theta_axion = param1;
+          //   if (pba->f_axion == 0){
+          //     if (input_verbose > 5)
+          //     {
+          //       printf("f_axion=0 for setting phi_ini, settng to 1e-3\n");
+          //     }
+          //     pba->f_axion = 1e-3;
+          //   }
+          // pba->scf_parameters[pba->scf_parameters_size-2] = param1*pba->f_axion;
+          pba->scf_parameters[pba->scf_parameters_size-2] = param1;
           }
 
 
@@ -7476,6 +7482,7 @@ int input_default_params(struct background *pba,
   pba->n_axion = 1;
   pba->log10_axion_ac = -30;
   pba->Omega0_axion = 0.0;
+  pba->theta_axion = 0.0;
   pba->scf_has_perturbations = _TRUE_;
   pba->threshold_scf_fluid_m_over_H = 3;
   pba->security_small_Omega_scf = -10;//set to a negative number so it is never used by default.
